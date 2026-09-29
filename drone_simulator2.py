@@ -1,55 +1,67 @@
-import json
 import time
-from datetime import datetime
-import os
+import json
 import random
+from datetime import datetime
 
-# Ten kod sam sprawdzi, w jakim folderze jest Twój skrypt
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# I sam stworzy podfolder "Drony_Input" dokładnie obok skryptu
-OUTPUT_DIR = os.path.join(BASE_DIR, "Drony_Input")
+# Konfiguracja symulacji
+SHELTER_IDS = [1, 2, 3]
+INTERVAL_SECONDS = 3
+INCIDENT_TRIGGER_TIME = 30
+OUTPUT_FILE = "drone_telemetry.jsonl"  # Plik wyjściowy dla Osoby 1
 
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
 
-print("=" * 50)
-print(f"ZAPISUJĘ PLIKI DOKŁADNIE TUTAJ:\n{OUTPUT_DIR}")
-print("=" * 50)
+def generate_normal_traffic(shelter_id):
+    return random.randint(5, 40)
 
-# MAGIA: Ten kawałek kodu sam otworzy Ci to okienko z folderem w Windowsie!
-try:
-    os.startfile(OUTPUT_DIR)
-except AttributeError:
-    pass  # Gdyby to nie był Windows
 
-try:
-    while True:
-        current_time = datetime.now().isoformat()
+def generate_incident_traffic(shelter_id):
+    if shelter_id == 1:
+        return random.randint(180, 250)
+    else:
+        return random.randint(0, 15)
 
-        for shelter_id in [1, 2, 3]:
-            if shelter_id == 1:
-                thermal_count = random.randint(180, 200)
-                is_incident = True
-            else:
-                thermal_count = random.randint(1, 30)
-                is_incident = False
 
-            data = {
-                "timestamp": current_time,
-                "shelter_id": shelter_id,
-                "thermal_objects_count": thermal_count,
-                "is_incident_active": is_incident
-            }
+def main():
+    print(f"🚀 Rozpoczynam symulację lotu drona. Dane trafiają do: {OUTPUT_FILE}")
 
-            file_name = f"zwiad_{shelter_id}_{int(time.time() * 1000)}.json"
-            file_path = os.path.join(OUTPUT_DIR, file_name)
+    # Czyści zawartość pliku przy każdym nowym uruchomieniu skryptu
+    open(OUTPUT_FILE, 'w').close()
 
-            # Fizyczny zapis
-            with open(file_path, "w") as json_file:
-                json.dump(data, json_file)
+    start_time = time.time()
 
-        print(f"[{current_time}] Zapisano 3 nowe pliki do folderu.")
-        time.sleep(3)
+    try:
+        while True:
+            elapsed_time = time.time() - start_time
+            is_incident_active = elapsed_time > INCIDENT_TRIGGER_TIME
 
-except KeyboardInterrupt:
-    print("\nSymulacja przerwana.")
+            for shelter_id in SHELTER_IDS:
+                if is_incident_active:
+                    thermal_count = generate_incident_traffic(shelter_id)
+                else:
+                    thermal_count = generate_normal_traffic(shelter_id)
+
+                payload = {
+                    "timestamp": datetime.now().isoformat(),
+                    "shelter_id": shelter_id,
+                    "thermal_objects_count": thermal_count,
+                    "is_incident_active": is_incident_active
+                }
+
+                json_data = json.dumps(payload)
+
+                # Zapis do pliku w trybie append ('a' - dopisywanie na końcu)
+                with open(OUTPUT_FILE, 'a', encoding='utf-8') as f:
+                    f.write(json_data + '\n')
+
+                # Podgląd w konsoli
+                print(f"[DRONE DATA] {json_data}")
+
+            print("-" * 50)
+            time.sleep(INTERVAL_SECONDS)
+
+    except KeyboardInterrupt:
+        print("\n🛑 Symulacja przerwana przez użytkownika.")
+
+
+if __name__ == "__main__":
+    main()
